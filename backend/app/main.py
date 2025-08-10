@@ -1,5 +1,3 @@
-# backend/app/main.py
-
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -20,23 +18,19 @@ app = FastAPI(
 )
 
 # --- CORS Middleware ---
-# Environment-based CORS configuration for production deployment
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-
-if ENVIRONMENT == "production":
-    # Production: Restrict to specific domains
-    origins = [
-        os.getenv("FRONTEND_URL", "https://warehouse-dashboard-chi.vercel.app/"),
-        # Add your deployed frontend URL here
-    ]
-else:
-    # Development: Allow local development servers
-    origins = [
-        "http://localhost:3000",  # React's default dev server
-        "http://localhost:3001",  # JSON server
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ]
+# A single list for all allowed origins (local and deployed)
+origins = [
+    # Local development URLs
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    # Deployed frontend URLs
+    "https://warehouse-dashboard-chi.vercel.app",
+    "https://warehouse-dashboard-aditya-nikams-projects.vercel.app",
+    "https://warehouse-dashboard-qbtrbbvf1-aditya-nikams-projects.vercel.app",
+    "https://warehouse-dashboard-git-main-aditya-nikams-projects.vercel.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,11 +45,6 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Warehouse Inventory API"}
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint for production monitoring."""
-    return {"status": "healthy", "environment": ENVIRONMENT}
 
 # --- Inventory Item Endpoints ---
 
@@ -100,6 +89,7 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
     return db_item
 
+
 # --- Supplier Endpoints ---
 
 @app.post("/suppliers/", response_model=schemas.Supplier, tags=["Suppliers"])
@@ -142,6 +132,7 @@ def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
     if db_supplier is None:
         raise HTTPException(status_code=404, detail="Supplier not found")
     return db_supplier
+
 
 # --- Shipment Endpoints ---
 
@@ -186,22 +177,17 @@ def delete_shipment(shipment_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Shipment not found")
     return db_shipment
 
+
 # --- AI & Analytics Endpoints ---
 
 @app.post("/predict_image/", tags=["AI Features"])
 async def predict_product_from_image(file: UploadFile = File(...)):
     """
     AI Feature: Accepts an image upload and returns a mock product prediction.
-    In a real-world scenario, this endpoint would process the image using a
-    computer vision model (e.g., YOLO, ResNet trained on product images).
     """
-    # Validate file type
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
-    # Placeholder/Mock logic
-    # We are not processing the image bytes (file.read()) for this mock.
-    # We just simulate a successful analysis.
+
     mock_products = ["Laptop", "Keyboard", "Mouse", "Monitor", "Webcam"]
     predicted_product = random.choice(mock_products)
     estimated_quantity = random.randint(1, 50)
@@ -219,8 +205,6 @@ async def predict_product_from_image(file: UploadFile = File(...)):
 def get_low_stock_items(threshold: int = 10, db: Session = Depends(get_db)):
     """
     Predictive Feature: Identifies items with stock levels below a given threshold.
-    This is a simple rule-based prediction. A more advanced system could use
-    historical sales data to predict future demand and proactively flag items.
     """
     items = db.query(models.InventoryItem).filter(models.InventoryItem.quantity < threshold).all()
     return items
@@ -228,7 +212,7 @@ def get_low_stock_items(threshold: int = 10, db: Session = Depends(get_db)):
 @app.get("/analytics/stock_by_category/", response_model=Dict[str, int], tags=["Analytics"])
 def get_stock_by_category(db: Session = Depends(get_db)):
     """Provides data for the 'Stock Levels by Category' chart."""
-    items = crud.get_items(db, limit=1000) # Get all items
+    items = crud.get_items(db, limit=1000)
     category_stock = {}
     for item in items:
         category_stock[item.category] = category_stock.get(item.category, 0) + item.quantity
@@ -237,9 +221,10 @@ def get_stock_by_category(db: Session = Depends(get_db)):
 @app.get("/analytics/daily_shipments/", response_model=Dict[str, int], tags=["Analytics"])
 def get_daily_shipments(db: Session = Depends(get_db)):
     """Provides data for the 'Daily Shipments Trend' chart."""
-    shipments = crud.get_shipments(db, limit=1000) # Get all shipments
+    shipments = crud.get_shipments(db, limit=1000)
     shipment_counts = {}
     for shipment in shipments:
-        date_str = shipment.estimated_delivery_date.isoformat()
-        shipment_counts[date_str] = shipment_counts.get(date_str, 0) + shipment.quantity
+        if shipment.estimated_delivery_date:
+            date_str = shipment.estimated_delivery_date.isoformat()
+            shipment_counts[date_str] = shipment_counts.get(date_str, 0) + shipment.quantity
     return shipment_counts

@@ -1,7 +1,8 @@
+# backend/requirements.txt
+
 fastapi
 uvicorn[standard]
 sqlalchemy
 pydantic
 python-multipart
-fastapi-cors
 psycopg2-binary
