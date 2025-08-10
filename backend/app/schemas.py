@@ -18,7 +18,7 @@ class Supplier(SupplierBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True # <-- This was changed
 
 # --- Inventory Item Schemas ---
 class InventoryItemBase(BaseModel):
@@ -36,7 +36,7 @@ class InventoryItem(InventoryItemBase):
     supplier: Optional[Supplier] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True # <-- This was changed
 
 # --- Shipment Schemas ---
 class ShipmentBase(BaseModel):
@@ -55,4 +55,4 @@ class Shipment(ShipmentBase):
     item: InventoryItem
 
     class Config:
-        orm_mode = True
+        from_attributes = True # <-- This was changed
