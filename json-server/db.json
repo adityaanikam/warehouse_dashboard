@@ -1,0 +1,14 @@
+{
+  "tips": [
+    {
+      "id": 1,
+      "message": "Tip: Regularly check stock levels to avoid shortages during peak seasons.",
+      "severity": "info"
+    },
+    {
+      "id": 2,
+      "message": "Remember to update shipment statuses as they move from 'In Transit' to 'Delivered'.",
+      "severity": "success"
+    }
+  ]
+}
