@@ -26,7 +26,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 if ENVIRONMENT == "production":
     # Production: Restrict to specific domains
     origins = [
-        os.getenv("FRONTEND_URL", "https://your-frontend-domain.com"),
+        os.getenv("FRONTEND_URL", "https://warehouse-dashboard-chi.vercel.app/"),
         # Add your deployed frontend URL here
     ]
 else:
