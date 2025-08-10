@@ -4,7 +4,7 @@ from faker import Faker
 from datetime import datetime, timedelta
 
 # --- Configuration ---
-API_BASE_URL = "http://127.0.0.1:8000"
+API_BASE_URL = "https://warehouse-dashboard-y8u6.onrender.com"
 NUM_SUPPLIERS = 50
 NUM_ITEMS = 50
 NUM_SHIPMENTS = 50
