@@ -17,7 +17,7 @@ a seed script and a reworked interface.
   category, shipment status, deliveries by date, and a restocking list sorted by lowest stock.
 - **Validation on both sides**: the forms check input before sending, and the API rejects bad data with
   readable errors (negative quantities, malformed emails, unknown suppliers or items, unknown statuses).
-- **Light and dark mode**, remembered between visits, and a layout that works on phones.
+- A packing-slip look (kraft paper, ink, safety orange, shipping-label cards, stamped status tags) with a **day shift / night shift** toggle that is remembered between visits, and a layout that works on phones.
 - **Demo image detection**: upload a picture and get a product guess. This is a mock. The server returns a
   random product and never looks at the image. It exists to demonstrate the upload-to-prediction data flow.
 

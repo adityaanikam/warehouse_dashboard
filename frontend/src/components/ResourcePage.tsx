@@ -1,6 +1,7 @@
 // frontend/src/components/ResourcePage.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  alpha,
   Alert,
   Box,
   Button,
@@ -19,6 +20,7 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { getErrorMessage } from '../api/apiService';
 import CreateDialog from './CreateDialog';
+import { colors, fonts } from '../theme';
 
 export interface FormRenderProps<V> {
   id: string;
@@ -193,7 +195,26 @@ function ResourcePage<T extends { id: number }, V>({
           pageSizeOptions={[10, 25, 50]}
           initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           localeText={{ noRowsLabel: `No ${plural} yet. Use "Add ${singular}" to create one.` }}
-          sx={{ border: 0, '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700 } }}
+          sx={{
+            border: 0,
+            borderRadius: 0,
+            '& .MuiDataGrid-columnHeaders, & .MuiDataGrid-columnHeader': {
+              backgroundColor: colors.ink,
+              color: colors.nightText,
+            },
+            '& .MuiDataGrid-columnHeader .MuiIconButton-root, & .MuiDataGrid-columnHeader .MuiSvgIcon-root': { color: colors.nightText },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontFamily: fonts.display,
+              fontWeight: 700,
+              fontSize: '1rem',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            },
+            '& .MuiDataGrid-cell': { fontFamily: fonts.body },
+            '& .MuiDataGrid-row:nth-of-type(even)': { backgroundColor: 'action.hover' },
+            '& .MuiDataGrid-row:hover': { backgroundColor: alpha(colors.orange, 0.12) },
+            '& .MuiDataGrid-footerContainer': { borderTop: (theme) => `1.5px solid ${theme.palette.divider}` },
+          }}
         />
       </Paper>
 

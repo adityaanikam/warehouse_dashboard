@@ -1,72 +1,104 @@
 // frontend/src/theme.ts
 import { alpha, createTheme, PaletteMode } from '@mui/material/styles';
 
-/** Colours reused by the charts so they match the UI in both modes. */
-export const chartPalette = ['#4f6bed', '#14b8a6', '#f59e0b', '#ec4899', '#8b5cf6', '#22c55e', '#f97316', '#06b6d4'];
+/**
+ * Visual identity: a packing slip. Kraft paper and ink, safety orange, square corners,
+ * condensed stencil-style headings and monospaced figures. "Day shift" is the light
+ * theme, "night shift" the dark one.
+ */
+export const fonts = {
+  body: '"Barlow", "Segoe UI", Roboto, Arial, sans-serif',
+  display: '"Barlow Condensed", "Arial Narrow", Arial, sans-serif',
+  mono: '"IBM Plex Mono", "Cascadia Mono", Consolas, monospace',
+};
+
+export const colors = {
+  ink: '#1d1b16',
+  orange: '#e4531c',
+  yellow: '#f2c230',
+  kraft: '#e9e1cd',
+  label: '#f7f2e6',
+  nightPaper: '#1e1c16',
+  nightBg: '#15140f',
+  nightText: '#efe8d6',
+  amber: '#f2a93b',
+};
+
+/** Diagonal black and yellow warning tape, used as a divider. */
+export const hazardStripes = (size = 10) =>
+  `repeating-linear-gradient(-45deg, ${colors.yellow} 0 ${size}px, ${colors.ink} ${size}px ${size * 2}px)`;
 
 export function createAppTheme(mode: PaletteMode) {
   const dark = mode === 'dark';
+  const ink = dark ? colors.nightText : colors.ink;
+  const line = dark ? '#3b372c' : colors.ink;
 
   return createTheme({
     palette: {
       mode,
-      primary: { main: dark ? '#8da2ff' : '#3f51d8' },
-      secondary: { main: '#14b8a6' },
-      background: {
-        default: dark ? '#0f1320' : '#f4f6fb',
-        paper: dark ? '#171c2e' : '#ffffff',
-      },
-      divider: dark ? alpha('#ffffff', 0.09) : alpha('#1b2559', 0.09),
+      primary: { main: dark ? colors.amber : colors.ink, contrastText: dark ? colors.ink : colors.label },
+      secondary: { main: colors.orange },
+      warning: { main: colors.orange },
+      error: { main: '#b3261e' },
+      success: { main: dark ? '#8fbf6a' : '#3f6b2a' },
+      info: { main: dark ? '#7fb3d5' : '#2a5d7c' },
+      text: { primary: ink, secondary: dark ? '#a39c88' : '#6b6454' },
+      background: { default: dark ? colors.nightBg : colors.kraft, paper: dark ? colors.nightPaper : colors.label },
+      divider: alpha(line, dark ? 1 : 0.22),
     },
-    shape: { borderRadius: 14 },
+    shape: { borderRadius: 2 },
     typography: {
-      fontFamily: '"Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      h4: { fontWeight: 700, letterSpacing: '-0.02em' },
-      h5: { fontWeight: 700, letterSpacing: '-0.01em' },
-      h6: { fontWeight: 600 },
-      button: { textTransform: 'none', fontWeight: 600 },
+      fontFamily: fonts.body,
+      h4: { fontFamily: fonts.display, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.05 },
+      h5: { fontFamily: fonts.mono, fontWeight: 600, letterSpacing: '-0.02em' },
+      h6: { fontFamily: fonts.display, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' },
+      subtitle1: { fontFamily: fonts.display, fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase' },
+      button: { fontFamily: fonts.display, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.95rem' },
+      caption: { fontFamily: fonts.mono, letterSpacing: '0.02em' },
     },
     components: {
-      MuiPaper: {
-        defaultProps: { elevation: 0 },
+      MuiCssBaseline: {
         styleOverrides: {
-          root: ({ theme }) => ({ border: `1px solid ${theme.palette.divider}`, backgroundImage: 'none' }),
+          '::selection': { background: colors.orange, color: colors.label },
+        },
+      },
+      MuiPaper: {
+        defaultProps: { elevation: 0, square: true },
+        styleOverrides: {
+          root: { border: `1.5px solid ${line}`, backgroundImage: 'none' },
         },
       },
       MuiAppBar: {
         defaultProps: { elevation: 0, color: 'inherit' },
         styleOverrides: {
           root: ({ theme }) => ({
-            backgroundColor: alpha(theme.palette.background.paper, 0.85),
-            backdropFilter: 'blur(8px)',
-            borderBottom: `1px solid ${theme.palette.divider}`,
+            backgroundColor: theme.palette.background.paper,
+            borderBottom: `1.5px solid ${line}`,
           }),
         },
       },
-      MuiDrawer: {
+      MuiButton: {
+        defaultProps: { disableElevation: true, disableRipple: false },
         styleOverrides: {
-          paper: ({ theme }) => ({
-            backgroundImage: 'none',
-            borderRight: `1px solid ${theme.palette.divider}`,
-          }),
+          root: { borderRadius: 2, paddingInline: 18 },
+          contained: {
+            boxShadow: `3px 3px 0 ${colors.orange}`,
+            transition: 'transform .08s, box-shadow .08s',
+            '&:hover': { boxShadow: `1px 1px 0 ${colors.orange}`, transform: 'translate(2px, 2px)' },
+          },
+          outlined: { borderWidth: 1.5, '&:hover': { borderWidth: 1.5 } },
         },
       },
-      MuiListItemButton: {
+      MuiChip: {
         styleOverrides: {
-          root: ({ theme }) => ({
-            borderRadius: 10,
-            margin: '2px 12px',
-            '&.Mui-selected': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.14),
-              color: theme.palette.primary.main,
-              '& .MuiListItemIcon-root': { color: theme.palette.primary.main },
-            },
-          }),
+          root: { borderRadius: 2, fontFamily: fonts.mono, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.7rem' },
         },
       },
-      MuiButton: { defaultProps: { disableElevation: true } },
-      MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
-      MuiDialog: { styleOverrides: { paper: { borderRadius: 18 } } },
+      MuiDialog: { styleOverrides: { paper: { borderRadius: 2, border: `2px solid ${line}`, boxShadow: `6px 6px 0 ${colors.orange}` } } },
+      MuiAlert: { styleOverrides: { root: { borderRadius: 2, border: `1.5px solid ${line}`, fontFamily: fonts.body } } },
+      MuiTextField: { defaultProps: { variant: 'outlined' } },
+      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 2 } } },
+      MuiTooltip: { styleOverrides: { tooltip: { borderRadius: 2, fontFamily: fonts.mono, fontSize: '0.72rem' } } },
     },
   });
 }

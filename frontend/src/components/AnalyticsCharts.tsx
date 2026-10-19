@@ -1,30 +1,33 @@
 // frontend/src/components/AnalyticsCharts.tsx
 import React, { useMemo } from 'react';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import {
-  ArcElement,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
-  Filler,
-  Legend,
   LinearScale,
   LineElement,
   PointElement,
   Tooltip,
 } from 'chart.js';
-import { alpha, Box, Skeleton, Typography, useTheme } from '@mui/material';
-import { chartPalette } from '../theme';
+import { Box, Skeleton, Typography, useTheme } from '@mui/material';
+import { colors, fonts } from '../theme';
 import { formatNumber, formatShortDate } from '../utils/format';
 
-ChartJS.register(ArcElement, BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip);
+ChartJS.register(BarElement, CategoryScale, LinearScale, LineElement, PointElement, Tooltip);
 
 const CHART_HEIGHT = 280;
 
-/** Shared look for all charts: theme-aware text and grid colours, no fixed aspect ratio. */
-function useChartColors() {
+/** Shared look for all charts: mono axis labels, ink-coloured marks, dashed grid. */
+function useChartStyle() {
   const theme = useTheme();
-  return { text: theme.palette.text.secondary, grid: theme.palette.divider, paper: theme.palette.background.paper };
+  const text = theme.palette.text.secondary;
+  return {
+    ink: theme.palette.text.primary,
+    text,
+    grid: theme.palette.divider,
+    tick: { color: text, font: { family: fonts.mono, size: 11 } },
+  };
 }
 
 const Frame: React.FC<{ loading: boolean; empty: boolean; emptyText: string; children: React.ReactNode }> = ({
@@ -35,10 +38,12 @@ const Frame: React.FC<{ loading: boolean; empty: boolean; emptyText: string; chi
 }) => (
   <Box sx={{ height: CHART_HEIGHT, position: 'relative' }}>
     {loading ? (
-      <Skeleton variant="rounded" height={CHART_HEIGHT} />
+      <Skeleton variant="rectangular" height={CHART_HEIGHT} />
     ) : empty ? (
       <Box sx={{ height: '100%', display: 'grid', placeItems: 'center' }}>
-        <Typography color="text.secondary">{emptyText}</Typography>
+        <Typography color="text.secondary" variant="caption">
+          {emptyText}
+        </Typography>
       </Box>
     ) : (
       children
@@ -48,9 +53,11 @@ const Frame: React.FC<{ loading: boolean; empty: boolean; emptyText: string; chi
 
 type SeriesProps = { data?: Record<string, number>; loading: boolean };
 
+/** Ink bars; the category with the least stock is picked out in safety orange. */
 export const StockByCategoryChart: React.FC<SeriesProps> = ({ data = {}, loading }) => {
-  const colors = useChartColors();
+  const style = useChartStyle();
   const labels = Object.keys(data);
+  const lowest = labels.length > 1 ? Math.min(...labels.map((l) => data[l])) : undefined;
 
   const chartData = useMemo(
     () => ({
@@ -59,14 +66,14 @@ export const StockByCategoryChart: React.FC<SeriesProps> = ({ data = {}, loading
         {
           label: 'Units in stock',
           data: labels.map((label) => data[label]),
-          backgroundColor: labels.map((_, i) => chartPalette[i % chartPalette.length]),
-          borderRadius: 8,
-          maxBarThickness: 56,
+          backgroundColor: labels.map((label) => (data[label] === lowest ? colors.orange : style.ink)),
+          borderRadius: 0,
+          maxBarThickness: 48,
         },
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data]
+    [data, style.ink]
   );
 
   return (
@@ -78,8 +85,8 @@ export const StockByCategoryChart: React.FC<SeriesProps> = ({ data = {}, loading
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: colors.text }, grid: { display: false } },
-            y: { beginAtZero: true, ticks: { color: colors.text }, grid: { color: colors.grid } },
+            x: { ticks: style.tick, grid: { display: false }, border: { color: style.ink, width: 2 } },
+            y: { beginAtZero: true, ticks: style.tick, grid: { color: style.grid }, border: { display: false } },
           },
         }}
       />
@@ -87,9 +94,9 @@ export const StockByCategoryChart: React.FC<SeriesProps> = ({ data = {}, loading
   );
 };
 
+/** Straight segments with square markers, like points plotted on graph paper. */
 export const DailyShipmentsChart: React.FC<SeriesProps> = ({ data = {}, loading }) => {
-  const theme = useTheme();
-  const colors = useChartColors();
+  const style = useChartStyle();
   // Dates arrive sorted from the API, but sorting here keeps the chart correct if that ever changes.
   const dates = Object.keys(data).sort();
 
@@ -100,16 +107,18 @@ export const DailyShipmentsChart: React.FC<SeriesProps> = ({ data = {}, loading 
         {
           label: 'Units due',
           data: dates.map((d) => data[d]),
-          borderColor: theme.palette.primary.main,
-          backgroundColor: alpha(theme.palette.primary.main, 0.15),
-          fill: true,
-          tension: 0.35,
-          pointRadius: 3,
+          borderColor: style.ink,
+          borderWidth: 2,
+          backgroundColor: colors.orange,
+          pointStyle: 'rect' as const,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0,
         },
       ],
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, theme.palette.primary.main]
+    [data, style.ink]
   );
 
   return (
@@ -121,8 +130,8 @@ export const DailyShipmentsChart: React.FC<SeriesProps> = ({ data = {}, loading 
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: colors.text, maxTicksLimit: 8 }, grid: { display: false } },
-            y: { beginAtZero: true, ticks: { color: colors.text }, grid: { color: colors.grid } },
+            x: { ticks: { ...style.tick, maxTicksLimit: 8 }, grid: { display: false }, border: { color: style.ink, width: 2 } },
+            y: { beginAtZero: true, ticks: style.tick, grid: { color: style.grid }, border: { display: false } },
           },
         }}
       />
@@ -130,48 +139,69 @@ export const DailyShipmentsChart: React.FC<SeriesProps> = ({ data = {}, loading 
   );
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  Pending: '#9aa4b8',
-  'In Transit': '#4f6bed',
-  Delivered: '#22c55e',
-  Delayed: '#ef4444',
+const STATUS_ORDER = ['Pending', 'In Transit', 'Delivered', 'Delayed'];
+
+const STATUS_FILL: Record<string, string> = {
+  Pending: '#a89f86',
+  'In Transit': colors.orange,
+  Delivered: '#3f6b2a',
+  Delayed: '#b3261e',
 };
 
+/**
+ * One long bar split by status, with a count under each segment, instead of a doughnut.
+ * Plain divs, so it needs no canvas and reads at a glance.
+ */
 export const ShipmentStatusChart: React.FC<SeriesProps> = ({ data = {}, loading }) => {
-  const colors = useChartColors();
-  const labels = Object.keys(data);
-  const total = labels.reduce((sum, label) => sum + data[label], 0);
-
-  const chartData = useMemo(
-    () => ({
-      labels,
-      datasets: [
-        {
-          data: labels.map((label) => data[label]),
-          backgroundColor: labels.map((label, i) => STATUS_COLORS[label] ?? chartPalette[i % chartPalette.length]),
-          borderColor: colors.paper,
-          borderWidth: 3,
-        },
-      ],
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, colors.paper]
-  );
+  const total = Object.values(data).reduce((sum, n) => sum + n, 0);
+  const statuses = [...STATUS_ORDER.filter((s) => s in data), ...Object.keys(data).filter((s) => !STATUS_ORDER.includes(s))];
 
   return (
     <Frame loading={loading} empty={total === 0} emptyText="No shipments yet">
-      <Doughnut
-        data={chartData}
-        options={{
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '68%',
-          plugins: {
-            legend: { position: 'bottom', labels: { color: colors.text, usePointStyle: true } },
-            tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${formatNumber(ctx.parsed)}` } },
-          },
-        }}
-      />
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+        <Box>
+          <Typography sx={{ fontFamily: fonts.mono, fontWeight: 600, fontSize: '3rem', lineHeight: 1, letterSpacing: '-0.04em' }}>
+            {formatNumber(total)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            SHIPMENTS ON RECORD
+          </Typography>
+        </Box>
+
+        <Box
+          role="img"
+          aria-label={statuses.map((s) => `${s}: ${data[s]}`).join(', ')}
+          sx={{ display: 'flex', height: 30, border: (theme) => `2px solid ${theme.palette.text.primary}` }}
+        >
+          {statuses
+            .filter((s) => data[s] > 0)
+            .map((s) => (
+              <Box
+                key={s}
+                title={`${s}: ${data[s]}`}
+                sx={{
+                  width: `${(data[s] / total) * 100}%`,
+                  bgcolor: STATUS_FILL[s] ?? 'text.secondary',
+                  '& + &': { borderLeft: (theme) => `2px solid ${theme.palette.text.primary}` },
+                }}
+              />
+            ))}
+        </Box>
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5 }}>
+          {statuses.map((s) => (
+            <Box key={s} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ width: 12, height: 12, flexShrink: 0, bgcolor: STATUS_FILL[s] ?? 'text.secondary', border: (theme) => `1.5px solid ${theme.palette.text.primary}` }} />
+              <Typography variant="caption" sx={{ textTransform: 'uppercase' }}>
+                {s}
+              </Typography>
+              <Typography variant="caption" sx={{ ml: 'auto', fontWeight: 600 }}>
+                {formatNumber(data[s])}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
     </Frame>
   );
 };

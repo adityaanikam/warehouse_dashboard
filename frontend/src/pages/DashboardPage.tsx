@@ -34,6 +34,7 @@ import { formatCompactCurrency, formatNumber } from '../utils/format';
 import { DailyShipmentsChart, ShipmentStatusChart, StockByCategoryChart } from '../components/AnalyticsCharts';
 import ImageUploadAI from '../components/ImageUploadAI';
 import StatCard from '../components/StatCard';
+import { colors, hazardStripes } from '../theme';
 
 type DashboardData = {
   summary?: IDashboardSummary;
@@ -48,19 +49,33 @@ const Section: React.FC<{ title: string; subtitle?: string; action?: React.React
   action,
   children,
 }) => (
-  <Paper sx={{ p: 3, height: '100%' }}>
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 1 }}>
-      <Box>
-        <Typography variant="h6">{title}</Typography>
+  <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 1,
+        px: 2.5,
+        py: 1.25,
+        bgcolor: colors.ink,
+        color: colors.nightText,
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="h6" noWrap sx={{ lineHeight: 1.2 }}>
+          {title}
+        </Typography>
         {subtitle && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="caption" noWrap sx={{ color: colors.yellow, display: 'block' }}>
             {subtitle}
           </Typography>
         )}
       </Box>
       {action}
     </Box>
-    {children}
+    <Box aria-hidden sx={{ height: 6, background: hazardStripes(6) }} />
+    <Box sx={{ p: 2.5, flexGrow: 1 }}>{children}</Box>
   </Paper>
 );
 
@@ -119,7 +134,7 @@ const DashboardPage: React.FC = () => {
         </Tooltip>
       </Box>
 
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
+      {loading && <LinearProgress color="secondary" sx={{ mb: 2, borderRadius: 0 }} />}
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}>
           {error}
@@ -165,7 +180,7 @@ const DashboardPage: React.FC = () => {
           <Section
             title="Needs restocking"
             subtitle="Lowest stock first"
-            action={<Button component={RouterLink} to="/inventory" size="small" startIcon={<LocalShippingIcon />}>Inventory</Button>}
+            action={<Button component={RouterLink} to="/inventory" size="small" color="inherit" variant="outlined" startIcon={<LocalShippingIcon />} sx={{ borderColor: colors.yellow, color: colors.yellow, flexShrink: 0 }}>Inventory</Button>}
           >
             {!loading && (data.lowStock?.length ?? 0) === 0 ? (
               <Alert severity="success">Nothing is running low. Stock levels look healthy.</Alert>
