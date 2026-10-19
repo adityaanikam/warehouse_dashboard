@@ -1,129 +1,75 @@
 // frontend/src/pages/InventoryPage.tsx
-import React, { useEffect, useState } from 'react';
-import { Box, Typography, Button, Paper, Alert, Snackbar } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { createInventoryItem, getInventoryItems } from '../api/apiService';
+import React from 'react';
+import { Box, Chip, Typography } from '@mui/material';
+import { GridColDef } from '@mui/x-data-grid';
+import {
+  createInventoryItem,
+  deleteInventoryItem,
+  getInventoryItems,
+  updateInventoryItem,
+} from '../api/apiService';
 import { IInventoryItem } from '../types';
-import CreateDialog from '../components/CreateDialog';
+import { formatCurrency, formatNumber } from '../utils/format';
 import InventoryForm, { InventoryFormValues } from '../components/InventoryForm';
+import ResourcePage from '../components/ResourcePage';
 
-/**
- * Renders the inventory management page with a data table and create functionality.
- */
-const InventoryPage: React.FC = () => {
-  const [items, setItems] = useState<IInventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [successMessage, setSuccessMessage] = useState<string>('');
+const LOW_STOCK = 10;
 
-  const fetchItems = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const data = await getInventoryItems();
-      setItems(data);
-    } catch (error) {
-      setError('Failed to fetch inventory items. Please try again.');
-      console.error("Failed to fetch inventory items:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => {
-    setOpen(false);
-    setError('');
-  };
-
-  const handleSubmit = async (values: InventoryFormValues) => {
-    try {
-      setSubmitting(true);
-      setError('');
-      await createInventoryItem(values as any);
-      setSuccessMessage('Item created successfully!');
-      handleClose();
-      await fetchItems();
-    } catch (e: any) {
-      const errorMessage = e.response?.data?.detail || 'Failed to create item. Please try again.';
-      setError(errorMessage);
-      console.error('Failed to create item', e);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCloseSnackbar = () => {
-    setSuccessMessage('');
-    setError('');
-  };
-
-  const columns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 90 },
-    { field: 'name', headerName: 'Product Name', width: 200 },
-    { field: 'category', headerName: 'Category', width: 150 },
-    { field: 'quantity', headerName: 'Quantity', type: 'number', width: 110 },
-    { field: 'price', headerName: 'Price ($)', type: 'number', width: 110 },
-    {
-      field: 'supplier',
-      headerName: 'Supplier',
-      width: 150,
-      renderCell: (params: GridRenderCellParams) => params.row.supplier?.name || 'N/A',
-    },
-  ];
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Inventory Management</Typography>
-        <Button variant="contained" onClick={handleOpen}>Add New Item</Button>
+const columns: GridColDef<IInventoryItem>[] = [
+  { field: 'id', headerName: 'ID', width: 80 },
+  { field: 'name', headerName: 'Product', flex: 1, minWidth: 180 },
+  { field: 'category', headerName: 'Category', width: 160 },
+  {
+    field: 'quantity',
+    headerName: 'In stock',
+    type: 'number',
+    width: 150,
+    renderCell: ({ row }) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, width: '100%' }}>
+        {row.quantity < LOW_STOCK && <Chip size="small" color="warning" label="Low" />}
+        <Typography variant="body2">{formatNumber(row.quantity)}</Typography>
       </Box>
-      
-      <Paper style={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={items}
-          columns={columns}
-          loading={loading}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 10, page: 0 },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50]}
-          checkboxSelection
-          disableRowSelectionOnClick
-        />
-      </Paper>
+    ),
+  },
+  {
+    field: 'price',
+    headerName: 'Price',
+    type: 'number',
+    width: 120,
+    valueFormatter: (value: number) => formatCurrency(value),
+  },
+  {
+    field: 'supplier',
+    headerName: 'Supplier',
+    flex: 1,
+    minWidth: 160,
+    valueGetter: (_value, row) => row.supplier?.name ?? 'No supplier',
+  },
+];
 
-      <CreateDialog
-        open={open}
-        onClose={handleClose}
-        title="Add New Item"
-        formId="inventory-form"
-        submitting={submitting}
-      >
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <InventoryForm id="inventory-form" onSubmit={handleSubmit} />
-      </CreateDialog>
+const toApiPayload = (values: InventoryFormValues) => ({ ...values, supplier_id: values.supplier_id ?? null });
 
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
-          {successMessage}
-        </Alert>
-      </Snackbar>
-    </Box>
-  );
-};
+const InventoryPage: React.FC = () => (
+  <ResourcePage<IInventoryItem, InventoryFormValues>
+    title="Inventory"
+    subtitle="Everything in stock. Items under 10 units are flagged as low."
+    singular="item"
+    plural="items"
+    columns={columns}
+    fetchRows={getInventoryItems}
+    createRow={(values) => createInventoryItem(toApiPayload(values))}
+    updateRow={(id, values) => updateInventoryItem(id, toApiPayload(values))}
+    deleteRow={deleteInventoryItem}
+    describeRow={(row) => row.name}
+    toFormValues={(row) => ({
+      name: row.name,
+      category: row.category,
+      quantity: row.quantity,
+      price: row.price,
+      supplier_id: row.supplier_id ?? undefined,
+    })}
+    renderForm={(props) => <InventoryForm {...props} />}
+  />
+);
 
 export default InventoryPage;

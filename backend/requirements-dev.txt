@@ -1,0 +1,5 @@
+# backend/requirements-dev.txt  (tests and demo data: pip install -r requirements-dev.txt)
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27
+faker>=25.0

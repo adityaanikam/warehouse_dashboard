@@ -1,84 +1,89 @@
 // frontend/src/api/apiService.ts
 import axios from 'axios';
-import { IInventoryItem, IShipment, ISupplier, ITip } from '../types';
+import {
+  IDashboardSummary,
+  IInventoryItem,
+  IPrediction,
+  IShipment,
+  ISupplier,
+} from '../types';
 
-// The base URL for your FastAPI backend
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+// Base URL of the FastAPI backend (set REACT_APP_API_URL for deployed builds).
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-});
+const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 
-// --- Generic CRUD functions can be created if desired, but specific ones are clearer ---
-
-/**
- * Fetches all inventory items from the backend.
- */
-export const getInventoryItems = async (): Promise<IInventoryItem[]> => {
-  const response = await apiClient.get('/items/');
-  return response.data;
-};
-
-export const createInventoryItem = async (payload: Omit<IInventoryItem, 'id' | 'supplier'>) => {
-  const response = await apiClient.post('/items/', payload);
-  return response.data as IInventoryItem;
-};
+type InventoryPayload = Omit<IInventoryItem, 'id' | 'supplier'>;
+type SupplierPayload = Omit<ISupplier, 'id'>;
+type ShipmentPayload = Omit<IShipment, 'id' | 'item'>;
 
 /**
-
- * Fetches all suppliers from the backend.
+ * Turns any failed request into a readable sentence.
+ * FastAPI returns `detail` as a string for our own errors and as a list of
+ * `{loc, msg}` objects for validation errors, so both shapes are handled.
  */
-export const getSuppliers = async (): Promise<ISupplier[]> => {
-  const response = await apiClient.get('/suppliers/');
-  return response.data;
-};
+export function getErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return error.code === 'ECONNABORTED'
+        ? 'The server took too long to respond.'
+        : 'Cannot reach the server. Is the backend running?';
+    }
+    const detail = error.response.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail) && detail.length > 0) {
+      return detail
+        .map((d: { loc?: (string | number)[]; msg?: string }) => {
+          const field = d.loc?.filter((part) => part !== 'body').join('.');
+          return field ? `${field}: ${d.msg}` : d.msg;
+        })
+        .join('; ');
+    }
+  }
+  return fallback;
+}
 
-export const createSupplier = async (payload: Omit<ISupplier, 'id'>) => {
-  const response = await apiClient.post('/suppliers/', payload);
-  return response.data as ISupplier;
-};
+// --- Inventory ---
+export const getInventoryItems = async (): Promise<IInventoryItem[]> =>
+  (await apiClient.get('/items/', { params: { limit: 500 } })).data;
+export const createInventoryItem = async (payload: InventoryPayload) =>
+  (await apiClient.post('/items/', payload)).data as IInventoryItem;
+export const updateInventoryItem = async (id: number, payload: InventoryPayload) =>
+  (await apiClient.put(`/items/${id}`, payload)).data as IInventoryItem;
+export const deleteInventoryItem = async (id: number) => (await apiClient.delete(`/items/${id}`)).data;
 
-/**
- * Fetches all shipments from the backend.
- */
-export const getShipments = async (): Promise<IShipment[]> => {
-  const response = await apiClient.get('/shipments/');
-  return response.data;
-};
+// --- Suppliers ---
+export const getSuppliers = async (): Promise<ISupplier[]> =>
+  (await apiClient.get('/suppliers/', { params: { limit: 500 } })).data;
+export const createSupplier = async (payload: SupplierPayload) =>
+  (await apiClient.post('/suppliers/', payload)).data as ISupplier;
+export const updateSupplier = async (id: number, payload: SupplierPayload) =>
+  (await apiClient.put(`/suppliers/${id}`, payload)).data as ISupplier;
+export const deleteSupplier = async (id: number) => (await apiClient.delete(`/suppliers/${id}`)).data;
 
-export const createShipment = async (payload: Omit<IShipment, 'id' | 'item'>) => {
-  const response = await apiClient.post('/shipments/', payload);
-  return response.data as IShipment;
-};
+// --- Shipments ---
+export const getShipments = async (): Promise<IShipment[]> =>
+  (await apiClient.get('/shipments/', { params: { limit: 500 } })).data;
+export const createShipment = async (payload: ShipmentPayload) =>
+  (await apiClient.post('/shipments/', payload)).data as IShipment;
+export const updateShipment = async (id: number, payload: ShipmentPayload) =>
+  (await apiClient.put(`/shipments/${id}`, payload)).data as IShipment;
+export const deleteShipment = async (id: number) => (await apiClient.delete(`/shipments/${id}`)).data;
 
-/**
- * Uploads an image file to the AI prediction endpoint.
- * @param file The image file to upload.
- */
-export const uploadProductImage = async (file: File) => {
+// --- Mock AI ---
+/** Uploads an image to the mock prediction endpoint (the backend does not analyse it). */
+export const uploadProductImage = async (file: File): Promise<{ prediction: IPrediction }> => {
   const formData = new FormData();
   formData.append('file', file);
-
-  const response = await apiClient.post('/predict_image/', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data;
+  return (await apiClient.post('/predict_image/', formData)).data;
 };
 
-/**
- * Fetches analytics data.
- */
-export const getStockByCategory = () => apiClient.get('/analytics/stock_by_category/');
-export const getDailyShipments = () => apiClient.get('/analytics/daily_shipments/');
-export const getLowStockAlerts = () => apiClient.get('/analytics/low_stock_alerts/');
-
-/**
- * Fetches static tips from the JSON server.
- */
-export const getTips = async (): Promise<ITip[]> => {
-  // Note the different port for the JSON server
-  const response = await axios.get('http://localhost:3001/tips');
-  return response.data;
-};
+// --- Analytics ---
+export const getDashboardSummary = async (): Promise<IDashboardSummary> =>
+  (await apiClient.get('/analytics/summary/')).data;
+export const getStockByCategory = async (): Promise<Record<string, number>> =>
+  (await apiClient.get('/analytics/stock_by_category/')).data;
+export const getDailyShipments = async (): Promise<Record<string, number>> =>
+  (await apiClient.get('/analytics/daily_shipments/')).data;
+export const getLowStockAlerts = async (): Promise<IInventoryItem[]> =>
+  (await apiClient.get('/analytics/low_stock_alerts/')).data;

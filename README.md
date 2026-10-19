@@ -1,191 +1,119 @@
-# AI-Powered Warehouse Inventory & Monitoring Dashboard
+# Warehouse Inventory and Monitoring Dashboard
 
-**🌐 [Live Demo](https://warehouse-dashboard-chi.vercel.app/)**
+**Live demo: [warehouse-dashboard-chi.vercel.app](https://warehouse-dashboard-chi.vercel.app/)**
 
-This is a full-stack web application built for a developer assessment. It provides a comprehensive dashboard for managing warehouse inventory, tracking shipments, and handling supplier information.
+A full stack dashboard for managing warehouse inventory, shipments and suppliers. A React and TypeScript
+frontend talks to a FastAPI backend over a PostgreSQL database (SQLite for local development).
 
-A key feature is a mock AI endpoint that demonstrates a full frontend-to-backend-to-frontend data flow for a simulated product image analysis.
-
----
-
-## Tech Stack
-
-- **Frontend**: React (TypeScript), MUI, Chart.js, Axios
-- **Backend**: Python, FastAPI, SQLAlchemy
-- **Database**: PostgreSQL (Production), SQLite (Local)
-- **Deployment**: Vercel (Frontend), Render (Backend)
-
----
+It started as a developer assessment and has since been tidied up: SQL level analytics, validation, tests,
+a seed script and a reworked interface.
 
 ## Features
 
-- **Inventory, Shipment, & Supplier Management**: Full CRUD operations for all core data models.
-- **Analytics Dashboard**: Visual charts for "Stock Levels by Category" and "Daily Shipments Trend."
-- **Low-Stock Alerts**: A simple predictive feature that flags items with quantities below a certain threshold.
-- **Mock AI Image Analysis**: Upload **any image** to simulate product detection. The backend does not actually analyze the image content. Instead, it demonstrates the API functionality by randomly returning one of the following predefined product names: **Laptop, Keyboard, Mouse, Monitor, or Webcam**.
+- **Inventory, shipments and suppliers**: list, search, filter, create, edit and delete from the UI.
+  Deleting something that is still referenced (a supplier with items, an item with shipments) is refused
+  with a clear message instead of failing silently.
+- **Overview dashboard**: headline numbers (products, units in stock, inventory value, low stock), stock by
+  category, shipment status, deliveries by date, and a restocking list sorted by lowest stock.
+- **Validation on both sides**: the forms check input before sending, and the API rejects bad data with
+  readable errors (negative quantities, malformed emails, unknown suppliers or items, unknown statuses).
+- **Light and dark mode**, remembered between visits, and a layout that works on phones.
+- **Demo image detection**: upload a picture and get a product guess. This is a mock. The server returns a
+  random product and never looks at the image. It exists to demonstrate the upload-to-prediction data flow.
 
----
+## Tech stack
 
-## Local Setup & Installation
+| Layer | Tools |
+|---|---|
+| Frontend | React 19, TypeScript, MUI and MUI X Data Grid, Chart.js, Axios, React Router |
+| Backend | Python, FastAPI, SQLAlchemy 2, Pydantic 2 |
+| Database | PostgreSQL in production, SQLite locally |
+| Testing | pytest (API), Jest and Testing Library (UI) |
+| Deployment | Vercel (frontend), Render (backend) |
 
-### 1. Backend Server (FastAPI)
+## Run it locally
+
+You need Python 3.11+ and Node 18+.
+
+### 1. Backend
 
 ```bash
-# Navigate to the backend directory
 cd backend
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
 
-# Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: .\\venv\\Scripts\\activate
-
-# Install dependencies and run the server
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m app.seed                 # optional: fill the local database with demo data
+uvicorn app.main:app --reload      # http://localhost:8000  (docs at /docs)
 ```
 
-The backend will be available at `http://localhost:8000`
+The local database is `backend/warehouse.db`. `python -m app.seed --reset` wipes and refills it. The seed
+script only writes to the local database and never calls a deployed API.
 
-### 2. Frontend Application (React)
+### 2. Frontend
 
 ```bash
-# Navigate to the frontend directory
 cd frontend
-
-# Install dependencies and start the development server
 npm install
-npm start
+npm start                          # http://localhost:3000
 ```
 
-The frontend will be available at `http://localhost:3000`
+The frontend calls `http://127.0.0.1:8000` by default. Point it elsewhere with `REACT_APP_API_URL`.
 
-### 3. JSON Server (Optional - for mock tips data)
+### 3. Tests
 
 ```bash
-# Navigate to the json-server directory
-cd json-server
-
-# Install and run JSON server
-npm install -g json-server
-json-server --watch db.json --port 3001
+cd backend && pytest                       # API tests (a temporary database, never your real one)
+cd frontend && npm test -- --watchAll=false
 ```
 
----
+## API
 
-## API Endpoints
+Interactive docs are served at `/docs`. All list endpoints take `skip` and `limit` (1 to 500).
 
-### Core CRUD Operations
-- `GET /items/` - Retrieve all inventory items
-- `POST /items/` - Create new inventory item
-- `PUT /items/{id}` - Update inventory item
-- `DELETE /items/{id}` - Delete inventory item
+| Resource | Endpoints |
+|---|---|
+| Items | `GET/POST /items/`, `GET/PUT/DELETE /items/{id}` |
+| Suppliers | `GET/POST /suppliers/`, `GET/PUT/DELETE /suppliers/{id}` |
+| Shipments | `GET/POST /shipments/`, `GET/PUT/DELETE /shipments/{id}` |
+| Analytics | `GET /analytics/summary/`, `/analytics/stock_by_category/`, `/analytics/daily_shipments/`, `/analytics/low_stock_alerts/?threshold=10` |
+| Demo AI | `POST /predict_image/` (mock) |
+| Health | `GET /health` (checks the database too) |
 
-- `GET /suppliers/` - Retrieve all suppliers
-- `POST /suppliers/` - Create new supplier
-- `PUT /suppliers/{id}` - Update supplier
-- `DELETE /suppliers/{id}` - Delete supplier
+Status codes: `201` on create, `400` for invalid references, `404` when missing, `409` when a delete would
+break a reference, `422` for validation errors.
 
-- `GET /shipments/` - Retrieve all shipments
-- `POST /shipments/` - Create new shipment
-- `PUT /shipments/{id}` - Update shipment
-- `DELETE /shipments/{id}` - Delete shipment
+## Design notes
 
-### Analytics & AI
-- `GET /analytics/stock_by_category/` - Stock levels by category
-- `GET /analytics/daily_shipments/` - Daily shipments trend
-- `GET /analytics/low_stock_alerts/` - Low stock alerts
-- `POST /predict_image/` - Mock AI image analysis
+- **Analytics run in SQL.** Category totals, delivery-date totals and the summary cards are `GROUP BY`
+  queries, not Python loops over rows, so cost does not grow with the amount of data.
+- **No query per row.** Item and shipment lists eager-load their related rows. A test counts the SQL
+  statements for a 20-row list and fails if the number grows with the row count. The low-stock endpoint used
+  to run one extra query per item, which this test now guards against.
+- **Indexes** on the foreign keys, shipment status and delivery date.
+- **Config through the environment**: `DATABASE_URL` (a `postgres://` URL is rewritten to `postgresql://`),
+  and `CORS_ORIGINS` for extra allowed frontends. Vercel preview deployments of this project are allowed
+  by a pattern.
+- **Existing databases**: tables are created on startup but never altered. If you deploy this over an
+  existing database, new indexes and the stricter column rules need a migration (Alembic is not set up).
 
----
+## Deploying
 
-## Project Structure
+- **Backend (Render)**: build `pip install -r backend/requirements.txt`, start
+  `uvicorn app.main:app --host 0.0.0.0 --port $PORT` from the `backend` folder, set `DATABASE_URL`, and use
+  `/health` as the health check path.
+- **Frontend (Vercel)**: root directory `frontend`, set `REACT_APP_API_URL` to the backend URL.
+
+## Project layout
 
 ```
-warehouse_dashboard_bhatiyani/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py          # FastAPI application
-│   │   ├── models.py        # SQLAlchemy models
-│   │   ├── schemas.py       # Pydantic schemas
-│   │   ├── crud.py          # Database operations
-│   │   └── database.py      # Database configuration
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/          # Page components
-│   │   ├── api/            # API service functions
-│   │   └── types/          # TypeScript type definitions
-│   └── package.json
-└── json-server/
-    └── db.json             # Mock data for tips
+backend/
+  app/            main.py (routes), crud.py (queries), models.py, schemas.py, database.py, seed.py
+  tests/          API tests
+frontend/src/
+  api/            axios client and error handling
+  components/     layout, charts, forms, the shared ResourcePage table screen
+  pages/          dashboard, inventory, shipments, suppliers
 ```
 
----
-
-## Key Features Explained
-
-### Mock AI Image Analysis
-This feature demonstrates a complete frontend-to-backend integration workflow:
-
-1. **Frontend**: User uploads any image file through the UI
-2. **Backend**: Receives the file and validates it's an image
-3. **Mock Processing**: Instead of actual image analysis, the backend randomly selects from predefined products
-4. **Response**: Returns a mock prediction with product name and estimated quantity
-5. **Frontend**: Displays the "prediction" result to the user
-
-This simulates how a real AI-powered inventory system would work without requiring actual computer vision models.
-
-### Analytics Dashboard
-- **Stock Levels by Category**: Bar chart showing total inventory quantities grouped by product category
-- **Daily Shipments Trend**: Line chart displaying shipment quantities over time
-- **Low Stock Alerts**: Real-time alerts for items with quantities below threshold
-
-### Responsive Design
-The application is fully responsive and works on:
-- Desktop computers
-- Tablets
-- Mobile phones
-
-The sidebar automatically collapses on smaller screens and can be toggled with a hamburger menu.
-
----
-
-## Deployment
-
-### Frontend (Vercel)
-- Automatically deployed from GitHub repository
-- Environment variables configured for production API endpoints
-- Optimized build process with TypeScript compilation
-
-### Backend (Render)
-- Python FastAPI application deployed as a web service
-- PostgreSQL database for production data
-- Environment-based CORS configuration for security
-- Health check endpoint for monitoring
-
----
-
-## Development Notes
-
-- **TypeScript**: Full type safety throughout the frontend
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Form Validation**: Real-time validation with helpful error messages
-- **Loading States**: Proper loading indicators for better UX
-- **Database**: Eager loading implemented to prevent N+1 query problems
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
----
-
-## License
-
-This project is created for assessment purposes.
+`prompts.md` records the prompts used while building the original assessment.

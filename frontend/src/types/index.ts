@@ -1,40 +1,50 @@
 // frontend/src/types/index.ts
 
-// Represents a Supplier
 export interface ISupplier {
   id: number;
   name: string;
-  contact_person?: string;
+  contact_person?: string | null;
   email: string;
-  phone?: string;
+  phone?: string | null;
 }
 
-// Represents an Inventory Item
 export interface IInventoryItem {
   id: number;
   name: string;
   quantity: number;
   category: string;
   price: number;
-  supplier_id?: number;
-  supplier?: ISupplier;
+  supplier_id?: number | null;
+  supplier?: ISupplier | null;
 }
 
-// Represents a Shipment
+export const SHIPMENT_STATUSES = ['Pending', 'In Transit', 'Delivered', 'Delayed'] as const;
+export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
+
 export interface IShipment {
   id: number;
   item_id: number;
   item: IInventoryItem;
   quantity: number;
-  origin: string;
-  destination: string;
+  origin?: string | null;
+  destination?: string | null;
   status: string;
-  estimated_delivery_date: string; // Comes as string from API
+  estimated_delivery_date?: string | null; // ISO date from the API
 }
 
-// Represents a mock tip/alert from JSON Server
-export interface ITip {
-  id: number;
-  message: string;
-  severity: "info" | "warning" | "success" | "error";
+/** Headline numbers returned by GET /analytics/summary/. */
+export interface IDashboardSummary {
+  total_items: number;
+  total_units: number;
+  inventory_value: number;
+  low_stock_count: number;
+  supplier_count: number;
+  shipments_by_status: Record<string, number>;
+  low_stock_threshold: number;
+}
+
+/** Result of the (mock) image analysis endpoint. */
+export interface IPrediction {
+  product_name: string;
+  estimated_quantity: number;
 }

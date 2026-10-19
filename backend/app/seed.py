@@ -1,89 +1,104 @@
-import requests
+# backend/app/seed.py
+"""Fill the LOCAL database with realistic demo data.
+
+    cd backend
+    python -m app.seed            # seeds only when the tables are empty
+    python -m app.seed --reset    # wipes everything first, then seeds
+
+It writes straight to the database named by DATABASE_URL (SQLite by default), so it
+never touches a deployed API. Requires `faker` (see requirements-dev.txt).
+"""
+import argparse
 import random
+from datetime import date, timedelta
+
 from faker import Faker
-from datetime import datetime, timedelta
+from sqlalchemy import func, select
 
-# --- Configuration ---
-API_BASE_URL = "https://warehouse-dashboard-y8u6.onrender.com"
-NUM_SUPPLIERS = 50
-NUM_ITEMS = 50
-NUM_SHIPMENTS = 50
+from . import models
+from .database import SessionLocal, engine
 
-# Initialize Faker to generate fake data
-fake = Faker()
+CATEGORIES = {
+    "Electronics": ["Laptop", "Monitor", "Keyboard", "Mouse", "Webcam", "Router", "Headset", "Power Bank"],
+    "Office Supplies": ["Stapler", "Notebook", "Whiteboard", "Marker Set", "Desk Lamp", "Paper Ream"],
+    "Hardware": ["Drill", "Screwdriver Set", "Toolbox", "Hammer", "Wrench", "Ladder"],
+    "Apparel": ["Safety Vest", "Work Gloves", "Hard Hat", "Boots", "Uniform Shirt"],
+    "Groceries": ["Rice Bag", "Cooking Oil", "Tea Pack", "Sugar Sack", "Flour Bag"],
+}
+STATUSES = ["Pending", "In Transit", "Delivered", "Delayed"]
+WAREHOUSES = ["Pune Hub", "Mumbai Port", "Bengaluru DC", "Delhi NCR Depot", "Chennai Yard", "Hyderabad Hub"]
 
-def seed_suppliers():
-    """Seeds the database with fake suppliers."""
-    print("Seeding suppliers...")
-    supplier_ids = []
-    for _ in range(NUM_SUPPLIERS):
-        payload = {
-            "name": fake.company(),
-            "contact_person": fake.name(),
-            "email": fake.email(),
-            "phone": fake.phone_number()
-        }
-        try:
-            response = requests.post(f"{API_BASE_URL}/suppliers/", json=payload)
-            response.raise_for_status() # Raise an exception for bad status codes
-            supplier_ids.append(response.json()["id"])
-            print(f"  Created supplier: {payload['name']}")
-        except requests.exceptions.RequestException as e:
-            print(f"  Error creating supplier: {e}")
-    return supplier_ids
 
-def seed_inventory_items(supplier_ids):
-    """Seeds the database with fake inventory items."""
-    print("\nSeeding inventory items...")
-    item_ids = []
-    product_categories = ["Electronics", "Office Supplies", "Hardware", "Apparel", "Groceries"]
-    for _ in range(NUM_ITEMS):
-        payload = {
-            "name": f"{fake.word().capitalize()} {fake.word().capitalize()}", # e.g., "Plastic Chair"
-            "quantity": random.randint(10, 500),
-            "category": random.choice(product_categories),
-            "price": round(random.uniform(5.99, 999.99), 2),
-            "supplier_id": random.choice(supplier_ids) if supplier_ids else None
-        }
-        try:
-            response = requests.post(f"{API_BASE_URL}/items/", json=payload)
-            response.raise_for_status()
-            item_ids.append(response.json()["id"])
-            print(f"  Created item: {payload['name']}")
-        except requests.exceptions.RequestException as e:
-            print(f"  Error creating item: {e}")
-    return item_ids
-    
-def seed_shipments(item_ids):
-    """Seeds the database with fake shipments."""
-    print("\nSeeding shipments...")
-    shipment_statuses = ["Pending", "In Transit", "Delivered", "Delayed"]
-    for _ in range(NUM_SHIPMENTS):
-        # Generate a random date within the next 30 days
-        delivery_date = (datetime.now() + timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d")
-        
-        payload = {
-            "item_id": random.choice(item_ids),
-            "quantity": random.randint(1, 50),
-            "origin": fake.address().replace('\n', ', '),
-            "destination": fake.address().replace('\n', ', '),
-            "status": random.choice(shipment_statuses),
-            "estimated_delivery_date": delivery_date
-        }
-        try:
-            response = requests.post(f"{API_BASE_URL}/shipments/", json=payload)
-            response.raise_for_status()
-            print(f"  Created shipment for item ID: {payload['item_id']}")
-        except requests.exceptions.RequestException as e:
-            print(f"  Error creating shipment: {e}")
+def seed(num_suppliers: int = 12, num_shipments: int = 60, seed_value: int = 7) -> None:
+    random.seed(seed_value)
+    fake = Faker("en_IN")
+    Faker.seed(seed_value)
+
+    models.Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        suppliers = []
+        for _ in range(num_suppliers):
+            suppliers.append(
+                models.Supplier(
+                    name=f"{fake.company()} {fake.unique.random_int(10, 99)}",
+                    contact_person=fake.name(),
+                    email=fake.unique.company_email(),
+                    phone=fake.phone_number(),
+                )
+            )
+        db.add_all(suppliers)
+        db.flush()
+
+        items = []
+        for category, names in CATEGORIES.items():
+            for name in names:
+                # A few items are deliberately low on stock so the alerts show something.
+                low = random.random() < 0.2
+                items.append(
+                    models.InventoryItem(
+                        name=name,
+                        category=category,
+                        quantity=random.randint(0, 9) if low else random.randint(15, 400),
+                        price=round(random.uniform(9.99, 499.99), 2),
+                        supplier_id=random.choice(suppliers).id,
+                    )
+                )
+        db.add_all(items)
+        db.flush()
+
+        today = date.today()
+        for _ in range(num_shipments):
+            origin, destination = random.sample(WAREHOUSES, 2)
+            db.add(
+                models.Shipment(
+                    item_id=random.choice(items).id,
+                    quantity=random.randint(1, 60),
+                    origin=origin,
+                    destination=destination,
+                    status=random.choices(STATUSES, weights=[3, 4, 5, 1])[0],
+                    estimated_delivery_date=today + timedelta(days=random.randint(-10, 20)),
+                )
+            )
+        db.commit()
+    print(f"Seeded {num_suppliers} suppliers, {sum(len(v) for v in CATEGORIES.values())} items, {num_shipments} shipments.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Seed the local warehouse database.")
+    parser.add_argument("--reset", action="store_true", help="drop all tables first")
+    args = parser.parse_args()
+
+    if args.reset:
+        models.Base.metadata.drop_all(bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    with SessionLocal() as db:
+        existing = db.scalar(select(func.count(models.InventoryItem.id))) or 0
+    if existing and not args.reset:
+        print(f"Database already has {existing} items. Use --reset to start over.")
+        return
+    seed()
 
 
 if __name__ == "__main__":
-    print("--- Starting Database Seeding ---")
-    supplier_ids = seed_suppliers()
-    if supplier_ids:
-        item_ids = seed_inventory_items(supplier_ids)
-        if item_ids:
-            seed_shipments(item_ids)
-    print("\n--- Database Seeding Complete! ---")
-    print("You can now refresh your frontend application.")
+    main()

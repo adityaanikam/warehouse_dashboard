@@ -1,121 +1,119 @@
 // frontend/src/components/AppLayout.tsx
 import React, { useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { 
-  Box, 
-  Drawer, 
-  List, 
-  ListItem, 
-  ListItemButton, 
-  ListItemIcon, 
-  ListItemText, 
-  Toolbar, 
-  Typography, 
-  CssBaseline, 
+import {
   AppBar,
+  Avatar,
+  Box,
+  Drawer,
   IconButton,
-  useTheme,
-  useMediaQuery
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  PaletteMode,
+  Toolbar,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import PeopleIcon from '@mui/icons-material/People';
+import DashboardIcon from '@mui/icons-material/SpaceDashboardOutlined';
+import InventoryIcon from '@mui/icons-material/Inventory2Outlined';
+import LocalShippingIcon from '@mui/icons-material/LocalShippingOutlined';
+import PeopleIcon from '@mui/icons-material/GroupsOutlined';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
+import DarkModeIcon from '@mui/icons-material/DarkModeOutlined';
+import LightModeIcon from '@mui/icons-material/LightModeOutlined';
 
-const drawerWidth = 240;
+const drawerWidth = 248;
 
 const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-  { text: 'Shipments', icon: <LocalShippingIcon />, path: '/shipments' },
-  { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers' },
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/', title: 'Dashboard' },
+  { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory', title: 'Inventory' },
+  { text: 'Shipments', icon: <LocalShippingIcon />, path: '/shipments', title: 'Shipments' },
+  { text: 'Suppliers', icon: <PeopleIcon />, path: '/suppliers', title: 'Suppliers' },
 ];
 
 interface AppLayoutProps {
   children: React.ReactNode;
+  mode: PaletteMode;
+  onToggleMode: () => void;
 }
 
-/**
- * Provides the main application layout with a responsive sidebar and top app bar.
- * @param {AppLayoutProps} props - The props for the component.
- */
-export default function AppLayout({ children }: AppLayoutProps) {
+/** App shell: a sidebar for navigation, a top bar with the page title and a light/dark switch. */
+export default function AppLayout({ children, mode, onToggleMode }: AppLayoutProps) {
   const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
+  const current = menuItems.find((item) => item.path === location.pathname) ?? menuItems[0];
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Warehouse Dashboard
-        </Typography>
+      <Toolbar sx={{ gap: 1.5 }}>
+        <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+          <WarehouseIcon fontSize="small" />
+        </Avatar>
+        <Box>
+          <Typography variant="subtitle1" fontWeight={700} lineHeight={1.1}>
+            Warehouse
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Inventory and shipments
+          </Typography>
+        </Box>
       </Toolbar>
-      <Box sx={{ overflow: 'auto' }}>
-        <List>
-          {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                component={RouterLink}
-                to={item.path}
-                selected={location.pathname === item.path}
-                onClick={() => isMobile && setMobileOpen(false)}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-      </Box>
+      <List sx={{ pt: 1 }}>
+        {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              component={RouterLink}
+              to={item.path}
+              selected={location.pathname === item.path}
+              onClick={() => setMobileOpen(false)}
+              sx={{ width: '100%' }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} primaryTypographyProps={{ fontWeight: 600 }} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
-      <AppBar 
-        position="fixed" 
-        sx={{ 
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
-        }}
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <AppBar
+        position="fixed"
+        sx={{ width: { md: `calc(100% - ${drawerWidth}px)` }, ml: { md: `${drawerWidth}px` } }}
       >
         <Toolbar>
           <IconButton
             color="inherit"
-            aria-label="open drawer"
+            aria-label="open navigation"
             edge="start"
-            onClick={handleDrawerToggle}
+            onClick={() => setMobileOpen(true)}
             sx={{ mr: 2, display: { md: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Warehouse Dashboard
+          <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
+            {current.title}
           </Typography>
+          <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <IconButton color="inherit" onClick={onToggleMode} aria-label="toggle light and dark mode">
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
-      
-      <Box
-        component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-      >
-        {/* Mobile drawer */}
+
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
+          onClose={() => setMobileOpen(false)}
+          ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
@@ -123,27 +121,21 @@ export default function AppLayout({ children }: AppLayoutProps) {
         >
           {drawer}
         </Drawer>
-        
-        {/* Desktop drawer */}
         <Drawer
           variant="permanent"
+          open
           sx={{
             display: { xs: 'none', md: 'block' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
-          open
         >
           {drawer}
         </Drawer>
       </Box>
-      
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1, 
-          p: { xs: 1, sm: 2, md: 3 },
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-        }}
+
+      <Box
+        component="main"
+        sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, sm: 3 }, width: { md: `calc(100% - ${drawerWidth}px)` } }}
       >
         <Toolbar />
         {children}
