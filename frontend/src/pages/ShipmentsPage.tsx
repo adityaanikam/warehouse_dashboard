@@ -43,6 +43,9 @@ const columns: GridColDef<IShipment>[] = [
       const [y, m, d] = row.estimated_delivery_date.split('-').map(Number);
       return new Date(y, m - 1, d);
     },
+    // Same "30 Oct 2026" style as the rest of the app, instead of the browser's locale default.
+    valueFormatter: (value: Date | null) =>
+      value ? value.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-',
   },
 ];
 

@@ -25,7 +25,7 @@ const columns: GridColDef<IInventoryItem>[] = [
     type: 'number',
     width: 150,
     renderCell: ({ row }) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, width: '100%' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, width: '100%', height: '100%' }}>
         {row.quantity < LOW_STOCK && <Chip size="small" color="warning" label="Low" />}
         <Typography variant="body2">{formatNumber(row.quantity)}</Typography>
       </Box>
